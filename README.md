@@ -1,4 +1,4 @@
-# Jellyfin-Fullscreen-Button
+# Jellyfin Fullscreen Button (for Webinterface; need JavaScript Injector)
 
 Adds a fullscreen toggle button to the Jellyfin web interface Top Navigation Bar, on the right side near the SyncPlay icon.
 
