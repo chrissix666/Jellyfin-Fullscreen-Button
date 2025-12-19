@@ -6,7 +6,7 @@ Adds a fullscreen toggle button to the Jellyfin web interface Top Navigation Bar
 
 ## 🔧 Installation
 
-Make sure you have a JavaScript Injector Plugin installed.
+Make sure you have the official (or any) JavaScript Injector Plugin installed.
 
 Copy the contents of `fullscreentogglebutton.js` and paste it into a new JavaScript Injector script.  
 Give the script a name, save the settings, reload the page, and you are ready to go.
