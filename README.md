@@ -11,6 +11,11 @@ Make sure you have the official (or any) JavaScript Injector Plugin installed.
 Copy the contents of `fullscreentogglebutton.js` and paste it into a new JavaScript Injector script.  
 Give the script a name, save the settings, reload the page, and you are ready to go.
 
+## Disclaimer
+This button only emulates the **F11 key** and does **not** activate the fullscreen mode available via the three-dot menu in the top-right corner of Google Chrome.
+As my research has shown, there are multiple fullscreen modes. This plugin therefore uses only the simplest one. For example, if you start a video while in F11 fullscreen and the video enters its own fullscreen mode, once the video ends or is stopped, you will be returned to windowed mode. This behavior has both advantages and disadvantages. While emulating F11 is possible, security restrictions prevent emulating Chrome’s native fullscreen button via injected JavaScript.
+It’s not ideal, but it still provides a workable solution.
+
 ---
 
 ## 💡 What was the problem and what this addon should solve:
