@@ -1,6 +1,10 @@
 (function () {
     'use strict';
 
+    // Nur Windows-Browser ausführen
+    const isWindows = navigator.userAgent.includes('Windows') || navigator.platform.includes('Win');
+    if (!isWindows) return; // Abbruch, wenn nicht Windows
+
     const ICON_CLASS = 'material-symbols-outlined';
     const BUTTON_ID = 'jf-fullscreen-btn';
     const HEADER_SELECTOR = '.headerRight';
