@@ -3,7 +3,7 @@
 
     // Nur Windows-Browser ausführen
     const isWindows = navigator.userAgent.includes('Windows') || navigator.platform.includes('Win');
-    if (!isWindows) return; // Abbruch, wenn nicht Windows
+    if (!isWindows) return;
 
     const ICON_CLASS = 'material-symbols-outlined';
     const BUTTON_ID = 'jf-fullscreen-btn';
@@ -32,14 +32,13 @@
 
     function createButton() {
         const header = document.querySelector(HEADER_SELECTOR);
-        if (!header) return;
-
-        if (document.getElementById(BUTTON_ID)) return;
+        if (!header || document.getElementById(BUTTON_ID)) return;
 
         const btn = document.createElement('button');
         btn.id = BUTTON_ID;
         btn.className = 'headerButton';
         btn.title = 'Fullscreen (F11)';
+
         const icon = document.createElement('span');
         icon.className = ICON_CLASS;
         icon.textContent = 'fullscreen';
@@ -51,7 +50,13 @@
             setTimeout(() => icon.textContent = document.fullscreenElement ? 'fullscreen_exit' : 'fullscreen', 50);
         });
 
-        header.insertBefore(btn, header.firstChild);
+        // **Eine Position nach rechts verschieben**
+        const firstButton = header.querySelector('.headerButton');
+        if (firstButton) {
+            header.insertBefore(btn, firstButton.nextSibling); // nach dem ersten Button
+        } else {
+            header.appendChild(btn); // fallback
+        }
     }
 
     function waitForHeader() {
