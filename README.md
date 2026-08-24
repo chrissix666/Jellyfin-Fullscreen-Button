@@ -1,3 +1,7 @@
+[Jellyfin Projects](https://linktr.ee/JellyfinProjects) | [Kodi Projects](https://linktr.ee/KodiProjects)
+
+---
+
 # Jellyfin Fullscreen Button
 
 For Webinterface; need JavaScript Injector, tested on Chrome on Windows 11
