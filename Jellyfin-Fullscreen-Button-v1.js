@@ -1,12 +1,3 @@
-function fsIsSupportedPlatform() {
-    const ua = navigator.userAgent.toLowerCase();
-    const isMobile = ['mobi', 'ipad', 'iphone', 'ipod', 'silk', 'opera mini'].some((term) => ua.includes(term));
-    const isTv = ['tv', 'samsungbrowser', 'viera', 'web0s'].some((term) => ua.includes(term));
-    const isTizen = ua.includes('tizen') || window.tizen != null;
-    const isAndroid = ua.includes('android');
-    const isIOS = ['ipad', 'iphone', 'ipod'].some((term) => ua.includes(term)) || (ua.includes('macintosh') && navigator.maxTouchPoints > 1);
-    return !(isMobile || isTv || isTizen || isAndroid || isIOS);
-}
 
 (function () {
     'use strict';
@@ -15,13 +6,9 @@ function fsIsSupportedPlatform() {
     const isWindows = navigator.userAgent.includes('Windows') || navigator.platform.includes('Win');
     if (!isWindows) return;
 
-    // Nur echte Desktop-Web-Browser, keine Mobile/TV/Tizen/Android/iOS Wrapper
-    if (!fsIsSupportedPlatform()) return;
-
     const ICON_CLASS = 'material-symbols-outlined';
     const BUTTON_ID = 'jf-fullscreen-btn';
     const HEADER_SELECTOR = '.headerRight';
-    const RESPONSIVE_MAX_WIDTH = '50em';
 
     function injectFont() {
         if (document.getElementById('jf-material-symbols')) return;
@@ -40,9 +27,6 @@ function fsIsSupportedPlatform() {
             .${ICON_CLASS} { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; font-size:24px; display:inline-block; vertical-align:middle; }
             #${BUTTON_ID} { background:transparent; border:none; padding:4px; margin:0 2px; cursor:pointer; color:inherit; }
             #${BUTTON_ID}:hover { background:rgba(255,255,255,0.1); border-radius:4px; }
-            @media all and (max-width: ${RESPONSIVE_MAX_WIDTH}) {
-                #${BUTTON_ID} { display: none !important; }
-            }
         `;
         document.head.appendChild(style);
     }
