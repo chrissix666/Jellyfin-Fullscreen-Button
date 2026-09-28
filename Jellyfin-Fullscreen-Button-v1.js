@@ -10,13 +10,20 @@
     const BUTTON_ID = 'jf-fullscreen-btn';
     const HEADER_SELECTOR = '.headerRight';
 
-    function injectFont() {
-        if (document.getElementById('jf-material-symbols')) return;
-        const link = document.createElement('link');
-        link.id = 'jf-material-symbols';
-        link.rel = 'stylesheet';
-        link.href = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined';
-        document.head.appendChild(link);
+    // Inline SVG icons instead of relying on the "Material Symbols Outlined"
+    // icon font loaded from fonts.googleapis.com: whenever that font couldn't
+    // load (blocked, offline, privacy extensions) or hadn't loaded yet, the
+    // ligature text (e.g. "fullscreen") was shown instead of the icon. The
+    // paths are the glyphs of the exact font file fonts.googleapis.com
+    // serves for this family, drawn at the same 24px, so the icons look
+    // exactly as before, and the font no longer needs to be requested.
+    const ICON_PATHS = {
+        fullscreen: 'M120 -120V-320H200V-200H320V-120ZM640 -120V-200H760V-320H840V-120ZM120 -640V-840H320V-760H200V-640ZM760 -640V-760H640V-840H840V-640Z',
+        fullscreen_exit: 'M240 -120V-240H120V-320H320V-120ZM640 -120V-320H840V-240H720V-120ZM120 -640V-720H240V-840H320V-640ZM640 -640V-840H720V-720H840V-640Z'
+    };
+
+    function iconSvg(name) {
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true" style="display:block"><path d="' + ICON_PATHS[name] + '"/></svg>';
     }
 
     function injectStyle() {
@@ -42,13 +49,13 @@
 
         const icon = document.createElement('span');
         icon.className = ICON_CLASS;
-        icon.textContent = 'fullscreen';
+        icon.innerHTML = iconSvg('fullscreen');
         btn.appendChild(icon);
 
         btn.addEventListener('click', () => {
             if (!document.fullscreenElement) document.documentElement.requestFullscreen();
             else document.exitFullscreen();
-            setTimeout(() => icon.textContent = document.fullscreenElement ? 'fullscreen_exit' : 'fullscreen', 50);
+            setTimeout(() => icon.innerHTML = iconSvg(document.fullscreenElement ? 'fullscreen_exit' : 'fullscreen'), 50);
         });
 
         // **Eine Position nach rechts verschieben**
@@ -64,7 +71,6 @@
         const interval = setInterval(() => {
             if (document.querySelector(HEADER_SELECTOR)) {
                 clearInterval(interval);
-                injectFont();
                 injectStyle();
                 createButton();
             }
