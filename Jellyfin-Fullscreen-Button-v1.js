@@ -96,7 +96,9 @@
     // color 'inherit'): palette.action.active at action.hoverOpacity, i.e.
     // white 8 % in the dark MUI themes, black 4 % in Light and Apple TV.
     function getMuiHoverColor() {
-        const link = document.querySelector('link[href*="/themes/"][href$="theme.css"]');
+        // The href attribute is relative ("themes/dark/theme.css"); the
+        // regex below runs on the resolved, absolute link.href.
+        const link = document.querySelector('link[href*="themes/"][href$="theme.css"]');
         return link && /\/themes\/(light|appletv)\//.test(link.href) ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.08)';
     }
 
