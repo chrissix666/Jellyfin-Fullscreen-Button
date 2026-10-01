@@ -159,7 +159,8 @@
 
     // The toolbar unmounts on the video route and has no buttons on the
     // login/server pages, so the button is (re)placed whenever the DOM
-    // changes; at most once per frame.
+    // changes, batched with a short timer (requestAnimationFrame would not
+    // run while the tab is in the background).
     function watchMuiToolbar(onChange) {
         let queued = false;
         const run = () => { queued = false; onChange(); };
@@ -167,7 +168,7 @@
             if (!document.body) { setTimeout(start, 200); return; }
             run();
             new MutationObserver(() => {
-                if (!queued) { queued = true; requestAnimationFrame(run); }
+                if (!queued) { queued = true; setTimeout(run, 50); }
             }).observe(document.body, { childList: true, subtree: true });
         };
         start();
