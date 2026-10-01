@@ -28,23 +28,16 @@
         return '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true" style="display:block"><path d="' + ICON_PATHS[name] + '"/></svg>';
     }
 
-    function createButton() {
-        const header = document.querySelector(HEADER_SELECTOR);
-        if (!header || document.getElementById(BUTTON_ID)) return;
-
-        // Same classes as Jellyfin's own header buttons (SyncPlay, Cast,
-        // Search), so size, round hover/active highlight and colour come
-        // from Jellyfin's stylesheet and the active theme, 1:1.
+    function buildButton() {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.id = BUTTON_ID;
-        btn.className = 'headerButton headerButtonRight paper-icon-button-light';
         btn.title = 'Fullscreen (F11)';
 
         const icon = document.createElement('span');
         icon.className = ICON_CLASS;
         icon.setAttribute('aria-hidden', 'true');
-        icon.innerHTML = iconSvg('fullscreen');
+        icon.innerHTML = iconSvg(document.fullscreenElement ? 'fullscreen_exit' : 'fullscreen');
         btn.appendChild(icon);
 
         btn.addEventListener('click', () => {
@@ -52,14 +45,21 @@
             else document.exitFullscreen();
             setTimeout(() => icon.innerHTML = iconSvg(document.fullscreenElement ? 'fullscreen_exit' : 'fullscreen'), 50);
         });
+        return btn;
+    }
 
-        // **Eine Position nach rechts verschieben**
-        const firstButton = header.querySelector('.headerButton');
-        if (firstButton) {
-            header.insertBefore(btn, firstButton.nextSibling); // nach dem ersten Button
-        } else {
-            header.appendChild(btn); // fallback
-        }
+    function createButton() {
+        const header = document.querySelector(HEADER_SELECTOR);
+        if (!header || document.getElementById(BUTTON_ID)) return;
+
+        // Same classes as Jellyfin's own header buttons (SyncPlay, Cast,
+        // Search), so size, round hover/active highlight and colour come
+        // from Jellyfin's stylesheet and the active theme, 1:1.
+        const btn = buildButton();
+        btn.className = 'headerButton headerButtonRight paper-icon-button-light';
+
+        // After Random and Autoscroll, before Cinema and Jellyfin's buttons.
+        placeInOrder(header, btn);
     }
 
     function waitForHeader() {
@@ -71,5 +71,120 @@
         }, 200);
     }
 
-    waitForHeader();
+    /**********************
+     * EXPERIMENTAL LAYOUT (MUI toolbar)
+     **********************/
+    // jellyfin-web's Experimental layout hides the classic header
+    // (RootAppRouter renders <AppHeader isHidden>), so .headerRight is never
+    // visible there. Its toolbar is a MUI AppBar whose right-hand buttons
+    // (SyncPlay, Cast, Search) share one flex box; Search is always a link
+    // to search.html, so that link's parent is the box. RootAppRouter picks
+    // the layout once per page load from this localStorage key.
+    const IS_EXPERIMENTAL_LAYOUT = localStorage.getItem('layout') === 'experimental';
+
+    // Left-to-right order of the custom header buttons (Random, Autoscroll,
+    // Fullscreen, Cinema), so they line up the same in both layouts no
+    // matter which script runs first.
+    const HEADER_BUTTON_ORDER = ['randomMovieButton', 'jf-scroll-btn', 'jf-fullscreen-btn', 'jf-cinema-btn'];
+
+    function getMuiToolbarBox() {
+        const searchLink = document.querySelector('.MuiAppBar-root a[href*="search.html"]');
+        return searchLink ? searchLink.parentElement : null;
+    }
+
+    // Hover tint of Jellyfin's own toolbar buttons (MUI IconButton,
+    // color 'inherit'): palette.action.active at action.hoverOpacity, i.e.
+    // white 8 % in the dark MUI themes, black 4 % in Light and Apple TV.
+    function getMuiHoverColor() {
+        const link = document.querySelector('link[href*="/themes/"][href$="theme.css"]');
+        return link && /\/themes\/(light|appletv)\//.test(link.href) ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.08)';
+    }
+
+    // In the classic header Random sits in its own wrapper div.
+    function headerButtonRank(el) {
+        return el.id === 'randomMovieButtonContainer' ? 0 : HEADER_BUTTON_ORDER.indexOf(el.id);
+    }
+
+    // Puts el into box right before the first element that belongs after
+    // it: a Jellyfin button or a custom button later in the order.
+    function placeInOrder(box, el) {
+        const myRank = headerButtonRank(el);
+        let ref = null;
+        for (const child of box.children) {
+            if (child === el) continue;
+            const rank = headerButtonRank(child);
+            if (rank === -1 || rank > myRank) { ref = child; break; }
+        }
+        if (el.parentElement !== box || el.nextElementSibling !== ref) box.insertBefore(el, ref);
+    }
+
+    function placeInMuiToolbar(btn) {
+        const box = getMuiToolbarBox();
+        if (!box) return;
+        placeInOrder(box, btn);
+        btn.style.setProperty('--jf-mui-hover', getMuiHoverColor());
+    }
+
+    // Same box, padding, icon size, colour and hover transition as MUI's
+    // <IconButton size="large" color="inherit"> (@mui/material 5.16.7):
+    // 12px padding around a 1.5rem icon (SvgIcon 'medium'), round, icon
+    // keeps the toolbar colour.
+    function muiButtonCss(id) {
+        return `
+            #${id}.jf-mui-header-btn {
+                display:inline-flex; align-items:center; justify-content:center;
+                position:relative; box-sizing:border-box; flex:0 0 auto;
+                padding:12px; margin:0; border:0; border-radius:50%;
+                background-color:transparent; color:inherit; font-size:1.75rem;
+                cursor:pointer; outline:0; vertical-align:middle;
+                -webkit-tap-highlight-color:transparent;
+                transition:background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+            }
+            #${id}.jf-mui-header-btn > .material-icons { font-size:1.5rem; line-height:1; }
+            @media (hover: hover) {
+                #${id}.jf-mui-header-btn:hover { background-color:var(--jf-mui-hover, rgba(255, 255, 255, 0.08)); }
+            }
+        `;
+    }
+
+    function injectMuiStyle(styleId, buttonId) {
+        if (document.getElementById(styleId)) return;
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = muiButtonCss(buttonId);
+        document.head.appendChild(style);
+    }
+
+    // The toolbar unmounts on the video route and has no buttons on the
+    // login/server pages, so the button is (re)placed whenever the DOM
+    // changes; at most once per frame.
+    function watchMuiToolbar(onChange) {
+        let queued = false;
+        const run = () => { queued = false; onChange(); };
+        const start = () => {
+            if (!document.body) { setTimeout(start, 200); return; }
+            run();
+            new MutationObserver(() => {
+                if (!queued) { queued = true; requestAnimationFrame(run); }
+            }).observe(document.body, { childList: true, subtree: true });
+        };
+        start();
+    }
+
+    function createExperimentalButton() {
+        if (!getMuiToolbarBox()) return;
+        let btn = document.getElementById(BUTTON_ID);
+        if (!btn) {
+            btn = buildButton();
+            btn.className = 'jf-mui-header-btn';
+        }
+        placeInMuiToolbar(btn);
+    }
+
+    if (IS_EXPERIMENTAL_LAYOUT) {
+        injectMuiStyle('jf-fullscreen-mui-style', BUTTON_ID);
+        watchMuiToolbar(createExperimentalButton);
+    } else {
+        waitForHeader();
+    }
 })();
