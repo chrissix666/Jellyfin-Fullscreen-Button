@@ -335,6 +335,10 @@
             // from Jellyfin's stylesheet and the active theme, 1:1.
             btn.className = 'headerButton headerButtonRight paper-icon-button-light';
         }
+        // Classic header: place once, as on 10.10.7; re-order only when the
+        // button is not in the box (new header, layout switch). Re-ordering on
+        // every DOM change would fight other header scripts that move themselves.
+        if (!jfcompat.isMui() && btn.parentElement === box) return;
         // After Random and Autoscroll, before Cinema and Jellyfin's buttons.
         placeInOrder(box, btn);
     }
