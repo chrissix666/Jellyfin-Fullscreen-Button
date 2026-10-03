@@ -64,7 +64,7 @@ If anyone knows a clean and simple way to reliably control the sort order of mul
 
 ## 🧪 Tested On
 
-- Jellyfin 10.10.7  
+- Jellyfin 10.10.7 and 12.0+  
 - Windows 11  
 - Google Chrome  
 
