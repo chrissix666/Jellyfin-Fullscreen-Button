@@ -2,14 +2,15 @@
 (function () {
     'use strict';
 
-    /* jfcompat 1.0 - one script for Jellyfin web 10.10.7 and 12.1.
+    /* jfcompat 1.1 - one script for Jellyfin web 10.10.7 and 12.1 (1.1: layout
+     * setting scheme of 10.11 = 10.10, isModernLayoutModel).
      * Paste this block unchanged at the top of a script (inside its IIFE).
      * It is pure: no side effects at load, no globals except window.jfcompat
      * (set only when absent, for console checks; scripts use the local const).
      * Rule: on 10.10.7 every answer equals what the scripts computed before. */
     const jfcompat = (function () {
         'use strict';
-        const VERSION = '1.0';
+        const VERSION = '1.1';
 
         // ---------- version ----------
         // The web client ships with the server, so the server version decides.
@@ -29,12 +30,28 @@
             } catch (e) { /* ignore */ }
             return null;
         }
-        // 12.x model: modern layout default, routes without .html, legacy auth off.
-        // 10.11 was not audited; treated as the new model (live-check before relying on it).
+        // New model (>= 10.11): routes without .html, no Trailers tab on the
+        // Movies pages. Audited 2026-10-02 against web 10.11.11 (appRouter.js:404,
+        // moviesrecommended.js:229-241, apps/experimental/routes/movies/index.tsx:46-51).
+        // The layout setting is NOT part of it: 10.11 still has the 10.10 scheme,
+        // see isModernLayoutModel().
         function isNewModel() {
             const v = serverVersion();
             if (v) return v.major > 10 || (v.major === 10 && v.minor >= 11);
             return document.documentElement.hasAttribute('data-theme');
+        }
+
+        // Layout setting scheme of 12.x: modern by default, 'desktop-legacy' /
+        // 'mobile-legacy' / 'tv' classic (constants/layoutMode.ts, apphost.js
+        // 12.0:185-186). 10.10 and 10.11 instead: classic by default, MUI only for
+        // 'experimental' (layoutManager.js identical in 10.10.7 and 10.11.11,
+        // RootAppRouter.tsx 10.11.11:21-22). Without a server version the 12.x
+        // hint of isNewModel() decides (10.11 sets data-theme too; the DOM check
+        // in getLayout() comes first anyway).
+        function isModernLayoutModel() {
+            const v = serverVersion();
+            if (v) return v.major >= 12;
+            return isNewModel();
         }
 
         // ---------- routes ----------
@@ -93,7 +110,7 @@
             // 2) the setting, read the way each version reads it (not cached)
             let v = '';
             try { v = localStorage.getItem('layout') || ''; } catch (e) { /* ignore */ }
-            if (isNewModel()) return LEGACY_12.indexOf(v) >= 0 ? 'classic' : 'mui';
+            if (isModernLayoutModel()) return LEGACY_12.indexOf(v) >= 0 ? 'classic' : 'mui';
             return v === 'experimental' ? 'mui' : 'classic';
         }
         function isMui() { return getLayout() === 'mui'; }
@@ -209,10 +226,12 @@
         if (!window.jfcompat) window.jfcompat = api;
         return api;
     })();
-    /* end jfcompat 1.0 */
+    /* end jfcompat 1.1 */
 
-    // Nur Windows-Browser ausführen
-    const isWindows = navigator.userAgent.includes('Windows') || navigator.platform.includes('Win');
+    // Nur Windows-Browser ausführen. The Xbox app reports "Windows NT 10.0;
+    // ... Xbox" but already runs full screen in TV layout: not wanted there.
+    const isXbox = /Xbox/i.test(navigator.userAgent);
+    const isWindows = !isXbox && (navigator.userAgent.includes('Windows') || navigator.platform.includes('Win'));
     if (!isWindows) return;
 
     const ICON_CLASS = 'material-icons';
@@ -236,11 +255,17 @@
         return '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true" style="display:block"><path d="' + ICON_PATHS[name] + '"/></svg>';
     }
 
+    // The one button element; kept here so a button taken out of the MUI
+    // bar (public pages) comes back instead of a new one.
+    let buttonEl = null;
+
     function buildButton() {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.id = BUTTON_ID;
-        btn.title = 'Fullscreen (F11)';
+        // Not "(F11)": the button uses the Fullscreen API (page element),
+        // which is not the browser's F11 mode and does not leave it.
+        btn.title = 'Fullscreen';
 
         const icon = document.createElement('span');
         icon.className = ICON_CLASS;
@@ -248,13 +273,31 @@
         icon.innerHTML = iconSvg(document.fullscreenElement ? 'fullscreen_exit' : 'fullscreen');
         btn.appendChild(icon);
 
+        // The icon follows the 'fullscreenchange' event (syncIcon below), not
+        // a timer after the click. A refused request (iframe, permissions
+        // policy) is ignored instead of logging an uncaught promise error.
         btn.addEventListener('click', () => {
-            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-            else document.exitFullscreen();
-            setTimeout(() => icon.innerHTML = iconSvg(document.fullscreenElement ? 'fullscreen_exit' : 'fullscreen'), 50);
+            const done = !document.fullscreenElement
+                ? document.documentElement.requestFullscreen()
+                : document.exitFullscreen();
+            if (done && typeof done.catch === 'function') done.catch(() => {});
         });
+        buttonEl = btn;
         return btn;
     }
+
+    // Keeps the icon in step with the real state, whoever changed it: this
+    // button, Esc, F11 while in fullscreen, Jellyfin's own OSD fullscreen
+    // button (Screenfull on the same document) or the video player, which
+    // leaves fullscreen whenever playback ends (htmlVideoPlayer destroy()).
+    // Pure F11 browser fullscreen is not the Fullscreen API and fires no event.
+    function syncIcon() {
+        // buttonEl too: a button taken out of the MUI bar is kept in step.
+        const btn = document.getElementById(BUTTON_ID) || buttonEl;
+        const icon = btn && btn.querySelector('.' + ICON_CLASS);
+        if (icon) icon.innerHTML = iconSvg(document.fullscreenElement ? 'fullscreen_exit' : 'fullscreen');
+    }
+    document.addEventListener('fullscreenchange', syncIcon);
 
     /**********************
      * HEADER LAYOUTS
@@ -268,7 +311,7 @@
     // Left-to-right order of the custom header buttons (Random, Autoscroll,
     // Fullscreen, Cinema), so they line up the same in both layouts no
     // matter which script runs first.
-    const HEADER_BUTTON_ORDER = ['randomMovieButton', 'jf-scroll-btn', 'jf-fullscreen-btn', 'jf-cinema-btn'];
+    const HEADER_BUTTON_ORDER = ['randomMovieButton', 'jf-scroll-btn', 'jf-fullscreen-btn', 'jf-cinema-btn', 'jf-destroy-btn'];
 
     // In the classic header Random sits in its own wrapper div.
     function headerButtonRank(el) {
@@ -277,6 +320,7 @@
 
     // Puts el into box right before the first element that belongs after
     // it: a Jellyfin button or a custom button later in the order.
+    // Returns true when it had to move el.
     function placeInOrder(box, el) {
         const myRank = headerButtonRank(el);
         let ref = null;
@@ -285,7 +329,39 @@
             const rank = headerButtonRank(child);
             if (rank === -1 || rank > myRank) { ref = child; break; }
         }
-        if (el.parentElement !== box || el.nextElementSibling !== ref) box.insertBefore(el, ref);
+        if (el.parentElement !== box || el.nextElementSibling !== ref) { box.insertBefore(el, ref); return true; }
+        return false;
+    }
+
+    // MUI bar: re-order when something moved in front of the button, but at
+    // most REORDER_MAX times per REORDER_WINDOW_MS. After that only a missing
+    // button is placed again, so a foreign script that also puts itself
+    // first on every DOM change cannot start an endless insert loop.
+    const REORDER_MAX = 10;
+    const REORDER_WINDOW_MS = 10000;
+    let reorderTimes = [];
+    function placeInOrderCapped(box, el) {
+        const inBox = el.parentElement === box;
+        if (inBox) {
+            const now = Date.now();
+            reorderTimes = reorderTimes.filter(t => now - t < REORDER_WINDOW_MS);
+            if (reorderTimes.length >= REORDER_MAX) return;
+        }
+        if (placeInOrder(box, el) && inBox) reorderTimes.push(Date.now());
+    }
+
+    // The MUI hover colour needs a style read; it is read again only when
+    // the theme changes. On 12.x the value counts only once it came from the
+    // theme's CSS variables (form 'rgba(r g b / a)'); a read made before the
+    // theme stylesheet applied returns the fallback and is retried.
+    function setMuiHover(btn) {
+        const theme = jfcompat.getThemeId();
+        if (btn.getAttribute('data-jf-mui-theme') === theme) return;
+        const color = jfcompat.getMuiHoverColor();
+        btn.style.setProperty('--jf-mui-hover', color);
+        if (!document.documentElement.hasAttribute('data-theme') || color.indexOf(' / ') >= 0) {
+            btn.setAttribute('data-jf-mui-theme', theme);
+        }
     }
 
     // Same box, padding, icon size, colour and hover transition as MUI's
@@ -322,13 +398,18 @@
     // unmounts on the video route and has no buttons on the login/server
     // pages); jfcompat batches the DOM changes with a short timer.
     function placeButton(box) {
-        if (!box) return;
-        let btn = document.getElementById(BUTTON_ID);
+        if (!box) {
+            // MUI keeps the same toolbar box on the login/server pages but
+            // renders no buttons there; ours is a foreign node and would stay.
+            if (jfcompat.isMui() && buttonEl && buttonEl.parentElement) buttonEl.remove();
+            return;
+        }
+        let btn = document.getElementById(BUTTON_ID) || buttonEl;
         if (!btn) btn = buildButton();
         if (jfcompat.isMui()) {
             injectMuiStyle('jf-fullscreen-mui-style', BUTTON_ID);
             btn.className = 'jf-mui-header-btn';
-            btn.style.setProperty('--jf-mui-hover', jfcompat.getMuiHoverColor());
+            setMuiHover(btn);
         } else {
             // Same classes as Jellyfin's own header buttons (SyncPlay, Cast,
             // Search), so size, round hover/active highlight and colour come
@@ -340,7 +421,8 @@
         // every DOM change would fight other header scripts that move themselves.
         if (!jfcompat.isMui() && btn.parentElement === box) return;
         // After Random and Autoscroll, before Cinema and Jellyfin's buttons.
-        placeInOrder(box, btn);
+        if (jfcompat.isMui()) placeInOrderCapped(box, btn);
+        else placeInOrder(box, btn);
     }
 
     jfcompat.onHeaderBoxChange(placeButton);
