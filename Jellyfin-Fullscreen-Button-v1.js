@@ -234,6 +234,10 @@
     const isWindows = !isXbox && (navigator.userAgent.includes('Windows') || navigator.platform.includes('Win'));
     if (!isWindows) return;
 
+    // One copy per page, also when the Essentials plugin and the JavaScript Injector both load it.
+    if (window.__jfFullscreenButton) return;
+    window.__jfFullscreenButton = true;
+
     const ICON_CLASS = 'material-icons';
     const BUTTON_ID = 'jf-fullscreen-btn';
 
